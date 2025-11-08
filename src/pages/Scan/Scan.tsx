@@ -13,14 +13,35 @@ import {
   Group,
   Alert,
   Loader,
+  Image,
+  Card,
 } from "@mantine/core";
 import { BrowserMultiFormatReader } from "@zxing/browser";
+import {
+  fetchProductByBarcode,
+  type ProductSummary,
+} from "../../api/OpenFoodFacts";
+import { extractExpiryDate, type ExpiryResult } from "../../api/expiry";
+
+type Step = "barcode" | "expiry" | "summary";
 
 const Scan = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  const [step, setStep] = useState<Step>("barcode");
+
   const [scanning, setScanning] = useState(true);
   const [barcode, setBarcode] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  const [product, setProduct] = useState<ProductSummary | null>(null);
+  const [productLoading, setProductLoading] = useState(false);
+  const [productError, setProductError] = useState<string | null>(null);
+
+  const [expiryLoading, setExpiryLoading] = useState(false);
+  const [expiryError, setExpiryError] = useState<string | null>(null);
+  const [expiry, setExpiry] = useState<ExpiryResult | null>(null);
+
   const navigate = useNavigate();
 
   const isCameraSupported = useMemo(() => {
@@ -28,10 +49,12 @@ const Scan = () => {
     return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
   }, []);
 
+  // Step 1: barcode scanning
   useEffect(() => {
+    if (step !== "barcode") return;
     if (!isCameraSupported) {
-      setError(
-        "Camera access is not supported in this browser. Try opening the app in Chrome or Safari over HTTPS."
+      setScanError(
+        "Camera access is not supported in this browser. Try Chrome or Safari over HTTPS."
       );
       setScanning(false);
       return;
@@ -42,9 +65,11 @@ const Scan = () => {
 
     async function startScanner() {
       try {
-        setError(null);
+        setScanError(null);
         setScanning(true);
         setBarcode(null);
+        setProduct(null);
+        setProductError(null);
 
         await codeReader.decodeFromVideoDevice(
           undefined,
@@ -56,14 +81,14 @@ const Scan = () => {
               const text = result.getText();
               setBarcode(text);
               setScanning(false);
-              // codeReader.reset();
+              //   codeReader.reset();
             }
-            // err is expected sometimes while scanning; usually ignore
+            // ignore err during scanning
           }
         );
       } catch (e: any) {
         console.error(e);
-        setError(e?.message || "Failed to access camera");
+        setScanError(e?.message || "Failed to access camera");
         setScanning(false);
       }
     }
@@ -74,19 +99,94 @@ const Scan = () => {
 
     return () => {
       active = false;
-      // codeReader.reset();
+      //   codeReader.reset();
     };
-  }, [isCameraSupported]);
+  }, [isCameraSupported, step]);
 
-  const handleRescan = () => {
-    // simplest way to restart scanning
-    window.location.reload();
+  // When barcode is detected, fetch product
+  useEffect(() => {
+    if (!barcode) return;
+
+    const loadProduct = async () => {
+      try {
+        setProductLoading(true);
+        setProductError(null);
+        const summary = await fetchProductByBarcode(barcode);
+        setProduct(summary);
+      } catch (e: any) {
+        console.error(e);
+        setProductError(e?.message || "Could not fetch product details");
+        setProduct(null);
+      } finally {
+        setProductLoading(false);
+      }
+    };
+
+    loadProduct();
+  }, [barcode]);
+
+  const handleGoToExpiryStep = () => {
+    if (!product) return;
+    setStep("expiry");
   };
 
-  const handleUseBarcode = () => {
-    if (!barcode) return;
-    console.log("Use barcode:", barcode);
+  const handleExpiryFileChange: React.ChangeEventHandler<
+    HTMLInputElement
+  > = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setExpiryLoading(true);
+      setExpiryError(null);
+      const result = await extractExpiryDate(file);
+      if (!result.expiry) {
+        setExpiryError(
+          "Could not detect an expiry date. Try taking a clearer photo."
+        );
+        setExpiry(null);
+        return;
+      }
+      setExpiry(result);
+      setStep("summary");
+    } catch (err: any) {
+      console.error(err);
+      setExpiryError(err?.message || "Failed to extract expiry date");
+      setExpiry(null);
+    } finally {
+      setExpiryLoading(false);
+      // reset file input value so user can re-upload if needed
+      e.target.value = "";
+    }
+  };
+
+  // Save combined info to localStorage
+  const handleSaveToLocalStorage = () => {
+    if (!product || !expiry || !expiry.expiry) return;
+
+    const existingRaw = localStorage.getItem("products");
+    const existing = existingRaw ? JSON.parse(existingRaw) : [];
+
+    const newItem = {
+      ...product,
+      expiry: expiry.expiry,
+      expiryRaw: expiry.raw,
+      savedAt: new Date().toISOString(),
+    };
+
+    const updated = [...existing, newItem];
+    localStorage.setItem("products", JSON.stringify(updated));
+
     navigate("/home");
+  };
+
+  const handleRestart = () => {
+    setStep("barcode");
+    setBarcode(null);
+    setProduct(null);
+    setProductError(null);
+    setExpiry(null);
+    setExpiryError(null);
   };
 
   return (
@@ -95,68 +195,226 @@ const Scan = () => {
         <Group justify="space-between">
           <div>
             <Title order={2}>Scan a product</Title>
-            <Text c="dimmed" fz="sm">
-              Align the barcode within the frame. The scan will happen
-              automatically.
-            </Text>
+            {step === "barcode" && (
+              <Text c="dimmed" fz="sm">
+                Step 1 of 2 – Scan the product barcode.
+              </Text>
+            )}
+            {step === "expiry" && (
+              <Text c="dimmed" fz="sm">
+                Step 2 of 2 – Take a clear photo of the expiry date label.
+              </Text>
+            )}
+            {step === "summary" && (
+              <Text c="dimmed" fz="sm">
+                Review and save this product to your list.
+              </Text>
+            )}
           </div>
           <Button variant="subtle" onClick={() => navigate("/home")}>
             Back
           </Button>
         </Group>
 
-        <Paper
-          withBorder
-          shadow="sm"
-          radius="md"
-          p="xs"
-          style={{
-            overflow: "hidden",
-            aspectRatio: "3 / 4",
-            maxHeight: 480,
-          }}
-        >
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              borderRadius: "8px",
-            }}
-          />
-        </Paper>
+        {/* STEP 1: BARCODE SCANNING */}
+        {step === "barcode" && (
+          <>
+            {isCameraSupported && (
+              <Paper
+                withBorder
+                shadow="sm"
+                radius="md"
+                p="xs"
+                style={{
+                  overflow: "hidden",
+                  aspectRatio: "3 / 4",
+                  maxHeight: 480,
+                }}
+              >
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    borderRadius: "8px",
+                  }}
+                />
+              </Paper>
+            )}
 
-        {scanning && !error && (
-          <Group gap="xs">
-            <Loader size="sm" />
-            <Text fz="sm" c="dimmed">
-              Scanning…
-            </Text>
-          </Group>
-        )}
-
-        {error && (
-          <Alert color="red" title="Camera error">
-            {error}
-          </Alert>
-        )}
-
-        {barcode && (
-          <Paper withBorder radius="md" p="md">
-            <Stack gap="xs">
-              <Text fw={500}>Barcode detected</Text>
-              <Text>{barcode}</Text>
-              <Group justify="flex-start" mt="sm">
-                <Button onClick={handleUseBarcode}>Use this product</Button>
-                <Button variant="outline" onClick={handleRescan}>
-                  Scan again
-                </Button>
+            {scanning && !scanError && (
+              <Group gap="xs">
+                <Loader size="sm" />
+                <Text fz="sm" c="dimmed">
+                  Scanning for barcode…
+                </Text>
               </Group>
-            </Stack>
-          </Paper>
+            )}
+
+            {scanError && (
+              <Alert color="red" title="Camera error">
+                {scanError}
+              </Alert>
+            )}
+
+            {barcode && (
+              <Stack gap="xs">
+                <Text fz="sm" c="dimmed">
+                  Detected barcode: <strong>{barcode}</strong>
+                </Text>
+
+                {productLoading && (
+                  <Group gap="xs">
+                    <Loader size="sm" />
+                    <Text fz="sm" c="dimmed">
+                      Fetching product details…
+                    </Text>
+                  </Group>
+                )}
+
+                {productError && (
+                  <Alert color="red" title="Product lookup failed">
+                    {productError}
+                  </Alert>
+                )}
+
+                {product && (
+                  <Card withBorder radius="md" shadow="sm" padding="md">
+                    <Stack gap="sm">
+                      <Group align="flex-start" wrap="nowrap">
+                        {product.imageUrl && (
+                          <Image
+                            src={product.imageUrl}
+                            alt={product.name || "Product image"}
+                            width={90}
+                            radius="md"
+                          />
+                        )}
+                        <Stack gap={4} style={{ flex: 1 }}>
+                          <Text fw={600}>
+                            {product.name || "Unknown product"}
+                          </Text>
+                          {product.brand && (
+                            <Text fz="sm" c="dimmed">
+                              Brand: {product.brand}
+                            </Text>
+                          )}
+                          {product.quantity && (
+                            <Text fz="sm" c="dimmed">
+                              Quantity: {product.quantity}
+                            </Text>
+                          )}
+                        </Stack>
+                      </Group>
+
+                      <Group mt="sm">
+                        <Button onClick={handleGoToExpiryStep}>
+                          Next: scan expiry date
+                        </Button>
+                        <Button variant="outline" onClick={handleRestart}>
+                          Start over
+                        </Button>
+                      </Group>
+                    </Stack>
+                  </Card>
+                )}
+              </Stack>
+            )}
+          </>
+        )}
+
+        {/* STEP 2: EXPIRY CAPTURE */}
+        {step === "expiry" && (
+          <Stack gap="md">
+            <Card withBorder radius="md" shadow="xs" padding="md">
+              <Stack gap="xs">
+                <Text fw={500}>Take a photo of the expiry date</Text>
+                <Text fz="sm" c="dimmed">
+                  Make sure the label is clear and readable (e.g. &quot;Best
+                  before 30/11/25&quot;).
+                </Text>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleExpiryFileChange}
+                />
+                {expiryLoading && (
+                  <Group gap="xs" mt="sm">
+                    <Loader size="sm" />
+                    <Text fz="sm" c="dimmed">
+                      Reading expiry date…
+                    </Text>
+                  </Group>
+                )}
+                {expiryError && (
+                  <Alert mt="sm" color="red" title="Expiry scan failed">
+                    {expiryError}
+                  </Alert>
+                )}
+              </Stack>
+            </Card>
+            <Button variant="outline" onClick={handleRestart}>
+              Start over
+            </Button>
+          </Stack>
+        )}
+
+        {/* STEP 3: SUMMARY & SAVE */}
+        {step === "summary" && product && expiry && (
+          <Stack gap="md">
+            <Card withBorder radius="md" shadow="sm" padding="md">
+              <Stack gap="sm">
+                <Text fw={600}>Product summary</Text>
+                <Group align="flex-start" wrap="nowrap">
+                  {product.imageUrl && (
+                    <Image
+                      src={product.imageUrl}
+                      alt={product.name || "Product image"}
+                      width={90}
+                      radius="md"
+                    />
+                  )}
+                  <Stack gap={4} style={{ flex: 1 }}>
+                    <Text fw={600}>{product.name || "Unknown product"}</Text>
+                    {product.brand && (
+                      <Text fz="sm" c="dimmed">
+                        Brand: {product.brand}
+                      </Text>
+                    )}
+                    {product.quantity && (
+                      <Text fz="sm" c="dimmed">
+                        Quantity: {product.quantity}
+                      </Text>
+                    )}
+                    <Text fz="sm">
+                      Barcode: <strong>{product.barcode}</strong>
+                    </Text>
+                    <Text fz="sm" c="green">
+                      Expiry date: <strong>{expiry.expiry}</strong>
+                    </Text>
+                    {expiry.raw && (
+                      <Text fz="xs" c="dimmed">
+                        Detected from label: “{expiry.raw}”
+                      </Text>
+                    )}
+                  </Stack>
+                </Group>
+
+                <Group mt="md">
+                  <Button onClick={handleSaveToLocalStorage}>
+                    Save to my items
+                  </Button>
+                  <Button variant="outline" onClick={handleRestart}>
+                    Scan another product
+                  </Button>
+                </Group>
+              </Stack>
+            </Card>
+          </Stack>
         )}
       </Stack>
     </Container>
