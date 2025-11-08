@@ -16,6 +16,7 @@ export type ProductSummary = {
   imageUrl: string | null;
   categories: string | null;
   nutriScore: string | null;
+  //
 };
 
 export async function fetchProductByBarcode(
