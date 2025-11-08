@@ -20,7 +20,7 @@ import { BrowserMultiFormatReader } from "@zxing/browser";
 import {
   fetchProductByBarcode,
   type ProductSummary,
-} from "../../api/openFoodFacts";
+} from "../../api/OpenFoodFacts";
 import { extractExpiryDate, type ExpiryResult } from "../../api/expiry";
 
 type Step = "barcode" | "expiry" | "summary";
