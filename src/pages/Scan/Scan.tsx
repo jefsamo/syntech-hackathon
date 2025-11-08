@@ -49,7 +49,7 @@ const Scan = () => {
         await codeReader.decodeFromVideoDevice(
           undefined,
           videoRef.current!,
-          (result, err) => {
+          (result, _err) => {
             if (!active) return;
 
             if (result) {
