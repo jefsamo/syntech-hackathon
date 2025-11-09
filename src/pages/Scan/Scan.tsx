@@ -22,6 +22,7 @@ import { BrowserMultiFormatReader } from "@zxing/browser";
 //   type ProductSummary,
 // } from "../../api/OpenFoodFacts";
 import { extractExpiryDate, type ExpiryResult } from "../../api/expiry";
+import { parseExpiryString, toIsoDateString } from "../../utils/expiryParser";
 
 type Step = "barcode" | "expiry" | "summary";
 
@@ -207,15 +208,26 @@ const Scan = () => {
 
   // Save combined info to localStorage
   const handleSaveToLocalStorage = () => {
-    if (!product || !expiry || !expiry.expiry) return;
+    if (!product || !expiry) return;
+
+    // Try to parse whatever we got (expiry.expiry OR expiry.raw)
+    const parsed =
+      parseExpiryString(expiry.expiry) || parseExpiryString(expiry.raw || "");
+
+    if (!parsed) {
+      alert("Could not understand this expiry date format. Please rescan.");
+      return;
+    }
+
+    const isoExpiry = toIsoDateString(parsed);
 
     const existingRaw = localStorage.getItem("products");
     const existing = existingRaw ? JSON.parse(existingRaw) : [];
 
     const newItem = {
       ...product,
-      expiry: expiry.expiry,
-      expiryRaw: expiry.raw,
+      expiry: isoExpiry, // ✅ always YYYY-MM-DD in storage
+      expiryRaw: expiry.raw ?? expiry.expiry ?? null,
       savedAt: new Date().toISOString(),
     };
 

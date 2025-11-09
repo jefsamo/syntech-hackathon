@@ -11,6 +11,7 @@ import {
   Text,
   Title,
 } from "@mantine/core";
+import { parseExpiryString } from "../../utils/expiryParser";
 
 type StoredProduct = {
   barcode: string;
@@ -53,9 +54,16 @@ const Items = () => {
   }, []);
 
   const daysUntil = (expiry: string): number | null => {
-    if (!expiry) return null;
+    const parsed = parseExpiryString(expiry);
+    if (!parsed) return null;
+
     const now = new Date();
-    const target = new Date(expiry + "T00:00:00"); // avoid timezone weirdness
+    const target = new Date(
+      parsed.getFullYear(),
+      parsed.getMonth(),
+      parsed.getDate()
+    ); // normalise to local midnight
+
     const diffMs = target.getTime() - now.getTime();
     return Math.round(diffMs / (1000 * 60 * 60 * 24));
   };
