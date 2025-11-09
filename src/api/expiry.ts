@@ -8,7 +8,7 @@ export async function extractExpiryDate(file: File): Promise<ExpiryResult> {
   formData.append("image", file);
 
   const res = await fetch(
-    "https://syntech-hackathon-backend.onrender.com/api/extract-expiry",
+    "https://syntech-hackathon-backend.onrender.com/api/expiry/extract-expiry",
     {
       method: "POST",
       body: formData,
