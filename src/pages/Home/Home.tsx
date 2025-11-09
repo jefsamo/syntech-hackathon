@@ -45,7 +45,7 @@ const Home = () => {
             <Button
               variant="outline"
               size="md"
-              onClick={() => console.log("View items clicked")}
+              onClick={() => navigate("/items")}
             >
               View my items
             </Button>
