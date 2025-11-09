@@ -17,12 +17,9 @@ import {
   Card,
 } from "@mantine/core";
 import { BrowserMultiFormatReader } from "@zxing/browser";
-// import {
-//   fetchProductByBarcode,
-//   type ProductSummary,
-// } from "../../api/OpenFoodFacts";
 import { extractExpiryDate, type ExpiryResult } from "../../api/expiry";
 import { parseExpiryString, toIsoDateString } from "../../utils/expiryParser";
+import { saveItem } from "../../api/items";
 
 type Step = "barcode" | "expiry" | "summary";
 
@@ -67,7 +64,7 @@ async function fetchProductByBarcode(barcode: string): Promise<ProductSummary> {
     quantity: p.quantity || null,
     imageUrl: p.image_url || null,
     categories: p.categories || null,
-    nutriScore: p.nutriscore_grade || null, // often "a", "b", "c", etc.
+    nutriScore: p.nutriscore_grade || null,
   };
 }
 
@@ -129,7 +126,6 @@ const Scan = () => {
               setScanning(false);
               //   codeReader.reset();
             }
-            // ignore err during scanning
           }
         );
       } catch (e: any) {
@@ -207,12 +203,40 @@ const Scan = () => {
   };
 
   // Save combined info to localStorage
-  const handleSaveToLocalStorage = () => {
+  //   const handleSaveToLocalStorage = () => {
+  //     if (!product || !expiry) return;
+
+  //     // Try to parse whatever we got (expiry.expiry OR expiry.raw)
+  //     const parsed =
+  //       parseExpiryString(expiry.expiry) || parseExpiryString(expiry.raw || "");
+
+  //     if (!parsed) {
+  //       alert("Could not understand this expiry date format. Please rescan.");
+  //       return;
+  //     }
+
+  //     const isoExpiry = toIsoDateString(parsed);
+
+  //     const existingRaw = localStorage.getItem("products");
+  //     const existing = existingRaw ? JSON.parse(existingRaw) : [];
+
+  //     const newItem = {
+  //       ...product,
+  //       expiry: isoExpiry, // ✅ always YYYY-MM-DD in storage
+  //       expiryRaw: expiry.raw ?? expiry.expiry ?? null,
+  //       savedAt: new Date().toISOString(),
+  //     };
+
+  //     const updated = [...existing, newItem];
+  //     localStorage.setItem("products", JSON.stringify(updated));
+
+  //     navigate("/home");
+  //   };
+  const handleSaveToLocalStorage = async () => {
     if (!product || !expiry) return;
 
-    // Try to parse whatever we got (expiry.expiry OR expiry.raw)
-    const parsed =
-      parseExpiryString(expiry.expiry) || parseExpiryString(expiry.raw || "");
+    const rawExpiry = expiry.expiry || expiry.raw || "";
+    const parsed = parseExpiryString(rawExpiry);
 
     if (!parsed) {
       alert("Could not understand this expiry date format. Please rescan.");
@@ -221,18 +245,41 @@ const Scan = () => {
 
     const isoExpiry = toIsoDateString(parsed);
 
-    const existingRaw = localStorage.getItem("products");
-    const existing = existingRaw ? JSON.parse(existingRaw) : [];
+    const username = localStorage.getItem("username") || "Anonymous";
 
     const newItem = {
-      ...product,
-      expiry: isoExpiry, // ✅ always YYYY-MM-DD in storage
-      expiryRaw: expiry.raw ?? expiry.expiry ?? null,
-      savedAt: new Date().toISOString(),
+      barcode: product.barcode,
+      name: product.name,
+      brand: product.brand,
+      quantity: product.quantity,
+      imageUrl: product.imageUrl,
+      categories: product.categories ?? null,
+      nutriScore: product.nutriScore ?? null,
+      expiry: isoExpiry,
+      expiryRaw: expiry.raw ?? rawExpiry,
     };
 
-    const updated = [...existing, newItem];
-    localStorage.setItem("products", JSON.stringify(updated));
+    // localStorage (optional, for offline)
+    const existingRaw = localStorage.getItem("products");
+    const existing = existingRaw ? JSON.parse(existingRaw) : [];
+    localStorage.setItem(
+      "products",
+      JSON.stringify([
+        ...existing,
+        { ...newItem, savedAt: new Date().toISOString() },
+      ])
+    );
+
+    // Backend persistence for leaderboard
+    try {
+      await saveItem({
+        username,
+        ...newItem,
+      });
+    } catch (err) {
+      console.error("Failed to save to backend", err);
+      // you can still allow navigation if you want
+    }
 
     navigate("/home");
   };

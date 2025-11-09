@@ -1,4 +1,3 @@
-// pages/NamePage.tsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -19,10 +18,8 @@ const Landing = () => {
     const trimmed = name.trim();
     if (!trimmed) return;
 
-    // Persist in localStorage
     localStorage.setItem("username", trimmed);
 
-    // Redirect to home page
     navigate("/home");
   };
 

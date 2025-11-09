@@ -49,6 +49,20 @@ const Home = () => {
             >
               View my items
             </Button>
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => navigate("/leaderboard")}
+            >
+              Leaderboard
+            </Button>
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => navigate("/scan-food")}
+            >
+              Add cooked food
+            </Button>
 
             <Button
               variant="outline"
