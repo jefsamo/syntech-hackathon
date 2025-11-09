@@ -1,3 +1,5 @@
+import { BASE_URL } from "../utils/expiryParser";
+
 export type ExpiryResult = {
   expiry: string | null;
   raw: string | null;
@@ -7,19 +9,17 @@ export async function extractExpiryDate(file: File): Promise<ExpiryResult> {
   const formData = new FormData();
   formData.append("image", file);
 
-  const res = await fetch(
-    "https://syntech-hackathon-backend.onrender.com/api/expiry/extract-expiry",
-    {
-      method: "POST",
-      body: formData,
-    }
-  );
+  const res = await fetch(`${BASE_URL}/expiry/extract-expiry`, {
+    method: "POST",
+    body: formData,
+  });
 
   if (!res.ok) {
     throw new Error(`Expiry extraction failed (${res.status})`);
   }
 
   const data = await res.json();
+  console.log(data);
   return {
     expiry: data.expiry ?? null,
     raw: data.raw ?? null,

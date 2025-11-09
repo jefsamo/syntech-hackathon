@@ -117,3 +117,6 @@ export function parseExpiryString(raw: string | null | undefined): Date | null {
 export function toIsoDateString(date: Date): string {
   return date.toISOString().slice(0, 10); // YYYY-MM-DD
 }
+
+// export const BASE_URL = "http://localhost:3000/api";
+export const BASE_URL = "https://syntech-hackathon-backend.onrender.com/api";
