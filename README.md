@@ -1,73 +1,111 @@
-# React + TypeScript + Vite
+# 🥗 Food Expiry Tracker — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A user-facing web application that helps individuals track food expiry dates, reduce food waste, and build sustainable habits through an intuitive, camera-driven workflow.
 
-Currently, two official plugins are available:
+This frontend was built as part of a hackathon project and focuses on **simplicity**, **speed**, and **real-world usability**, guiding users step-by-step from scanning a product to safely storing expiry information.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+🏆 **Achievement:** First Runner-Up at the hackathon.
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Application Overview
 
-## Expanding the ESLint configuration
+The frontend provides a simple dashboard where users can:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Scan packaged food products
+- Add cooked food manually
+- View their tracked items
+- Check the leaderboard
+- Manage basic settings
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+The core user journey centres around **“Scan a Product”**, which combines barcode scanning and image capture to minimise manual data entry.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+---
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Dashboard UI
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Upon login, users are greeted with a dashboard offering clear actions:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- **Scan a product**
+- **View my items**
+- **Leaderboard**
+- **Add cooked food**
+- **Settings**
+- **Change user**
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+The layout is intentionally minimal to reduce friction and guide first-time users.
+
+---
+
+## Scan a Product — Workflow
+
+The “Scan a Product” feature follows a structured, user-friendly flow:
+
+### 1. Start Scan
+- User clicks **“Scan a product”** from the dashboard
+- The app navigates to the scanning page
+
+---
+
+### 2. Camera Permission
+- The browser requests access to the user’s camera
+- Camera access is required for barcode scanning and image capture
+
+---
+
+### 3. Barcode Scanning
+- User scans the product’s barcode using their camera
+- The barcode is captured and stored temporarily
+- This step uniquely identifies the product
+
+---
+
+### 4. Expiry Date Capture
+- After a successful barcode scan, the user is prompted to:
+  - Take a **photo of the expiry date** on the product label
+- This image is later processed by the backend AI service to extract the expiry date
+
+---
+
+### 5. Item Confirmation & Storage
+- Once the image is captured:
+  - The barcode
+  - Expiry image
+  - User identity  
+  are submitted to the backend
+- The item is saved to the user’s account
+- The user is redirected back to their dashboard or item list
+
+---
+
+## Outcome
+
+After completing the workflow:
+- The item appears in the user’s tracked items
+- Expiry dates are stored and can be monitored
+- Users build an accurate record of their food inventory without manual typing
+
+---
+
+## Design Goals
+
+- **Low friction**: minimal typing, camera-first experience
+- **Accessibility**: familiar browser-based camera permissions
+- **Speed**: complete scan flow in under a minute
+- **Accuracy**: AI-assisted expiry extraction
+- **Sustainability**: encourage conscious food usage
+
+---
+
+## Tech Stack (Frontend)
+
+- React
+- Mantine UI
+- TypeScript
+- Tanstack query for remote state synchronization
+
+---
+
+## Why This Matters
+
+Food waste is often caused by poor visibility and forgetfulness. By combining barcode scanning, image capture, and automation, this frontend reduces cognitive load and makes food tracking fast, practical, and accessible for everyday users.
